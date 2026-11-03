@@ -1,0 +1,8 @@
+#:schema node_modules/wrangler/config-schema.json
+# 외부 테스트용 정적 배포 — `npm run build` 결과(dist/)를 그대로 Workers assets 로 올린다.
+# 서버 코드·DB 없음. 키오스크 본배포(Phase 9)는 로컬 정적 서버 + Chrome --kiosk 로 한다.
+name = "curve-lab"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "dist"
