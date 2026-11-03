@@ -1,24 +1,43 @@
 import './style.css';
 import { generateDataset } from './core/data.ts';
+import { linearClosedForm } from './core/linear.ts';
 import { seedFrom } from './core/rng.ts';
+import { ensureBackground } from './ui/chrome.ts';
 import { mountStage1 } from './ui/stage1.ts';
+import { mountStage2 } from './ui/stage2.ts';
 
-// Phase 4 임시 연결: 1단계 화면을 바로 띄운다. 시작 화면·단계 이동·무입력 초기화는 Phase 7(app.ts) 에서.
+// 임시 흐름(Phase 7 전): 1단계 → 2단계. 시작 화면·3단계·무입력 초기화는 Phase 6~7(app.ts) 에서.
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('#app 요소가 없습니다');
+ensureBackground();
 
 const entropy = new Uint32Array(1);
 crypto.getRandomValues(entropy); // Math.random 대신 (CLAUDE.md 규칙 4)
-const seed = seedFrom(Date.now(), entropy[0]);
+const query = new URLSearchParams(location.search);
+const seed = query.has('seed') ? Number(query.get('seed')) >>> 0 : seedFrom(Date.now(), entropy[0]);
 const data = generateDataset(seed);
 
-const stage1 = mountStage1(app, data, {
-  onNext: (r) => console.log('1단계 결과', r),
-});
-
-if (import.meta.env.DEV) {
-  // dev 전용 점검 훅: ?machine=small|good|tooBig 이면 애니메이션 없이 경사하강을 끝까지 돌린 상태로 연다
-  (window as unknown as { __stage1: typeof stage1 }).__stage1 = stage1;
-  const m = new URLSearchParams(location.search).get('machine');
-  if (m === 'small' || m === 'good' || m === 'tooBig') stage1.runMachine(m, false);
+function openStage1(): void {
+  const stage1 = mountStage1(app!, data, { onNext: (r) => openStage2(r) });
+  devHook(1, (m) => {
+    if (m === 'small' || m === 'good' || m === 'tooBig') stage1.runMachine(m, false);
+  });
 }
+
+function openStage2(linear: { a: number; b: number }): void {
+  const stage2 = mountStage2(app!, data, linear, { onNext: (r) => console.log('2단계 결과', r) });
+  devHook(2, (m) => {
+    if (query.has('rest')) stage2.setNeuron(2, 1.15, 0.8); // 뉴런 3 을 자료 오른쪽 너머로 → 쉬는 뉴런 점검
+    if (m) stage2.runMachine(false);
+  });
+}
+
+/** dev 전용 점검 훅: ?stage=N&machine=… 로 특정 상태를 애니메이션 없이 연다 */
+function devHook(stage: number, run: (machine: string | null) => void): void {
+  if (!import.meta.env.DEV) return;
+  const wanted = Number(query.get('stage') ?? '1');
+  if (wanted === stage) run(query.get('machine'));
+}
+
+if (import.meta.env.DEV && Number(query.get('stage')) === 2) openStage2(linearClosedForm(data.train));
+else openStage1();
