@@ -132,7 +132,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   // ── 상태 ──
   let state: State = 'idle';
   let H: number = HIDDEN_CHOICES[1];
-  let initSeed = options.initSeed ?? ((data.seed * 2654435761 + 1) >>> 0);
+  let initSeed = options.initSeed ?? ((Math.imul(data.seed, 2654435761) + 1) >>> 0);
   let net: Mlp | null = null;
   let trainer: MlpTrainer | null = null;
   let raf = 0;
@@ -141,6 +141,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   let valMse = NaN;
   let records: ScoreRecord[] = store.today();
   let myRecord: ScoreRecord | null = null;
+  let complete = false; // 20000 epoch 을 끝까지 돌렸는가 (중간에 멈춘 결과는 기록하지 않는다)
 
   const fit = new Plot(fitCanvas, { xRange: [-1.2, 1.2], yRange: Y_RANGE, xLabel: 'x', yLabel: 'y' });
   const lossPlot = new Plot(lossCanvas, { xRange: [0, EPOCHS], yRange: [-4, 0.5], xLabel: '반복', padding: { left: 84, right: 48, bottom: 44 } });
@@ -164,7 +165,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     // 잡음 하한 σ² 기준선
     const y = Math.log10(sigma2);
     lossPlot.drawPath([{ x: 0, y }, { x: EPOCHS, y }], { color: COLORS.val, width: 2, dash: [8, 6] }, false);
-    lossPlot.drawText('σ²', EPOCHS, y, { align: 'right', baseline: 'bottom', color: COLORS.val, size: 22, dx: -4, dy: -4 });
+    lossPlot.drawText('σ²', EPOCHS, y, { align: 'right', baseline: 'bottom', color: COLORS.val, size: 24, dx: -4, dy: -4 });
   }
 
   function drawBoard(): void {
@@ -178,7 +179,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     board.drawBars(BOARD_RANGE[0], w, counts, { highlight: mine });
     const sx = sigma2;
     board.drawPath([{ x: sx, y: 0 }, { x: sx, y: maxC * 1.15 }], { color: COLORS.val, width: 2, dash: [6, 5] }, false);
-    if (!records.length) board.drawText(t.boardEmpty, 0.2, maxC * 0.6, { align: 'center', color: '#566579', size: 22 });
+    if (!records.length) board.drawText(t.boardEmpty, 0.2, maxC * 0.6, { align: 'center', color: '#566579', size: 24 });
     const means = meansByH(records);
     meansEl.textContent = means.length ? means.map((m) => t.boardMean(m.H, m.mean, m.count)).join(' · ') : '';
   }
@@ -186,7 +187,6 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   function render(): void {
     drawFit();
     drawLoss();
-    drawBoard();
     const epoch = trainer?.epoch ?? 0;
     prog.style.width = `${(epoch / EPOCHS) * 100}%`;
     trainOut.value = trainer && Number.isFinite(trainer.lastLoss) ? trainer.lastLoss.toFixed(4) : '–';
@@ -227,8 +227,10 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     lossLog = [{ epoch: 0, loss: net.loss(train) }];
     valMse = NaN;
     myRecord = null;
+    complete = false;
     trueChk.checked = false;
     state = 'training';
+    drawBoard();
     setStatus(t.training);
     if (!animate) {
       while (trainer.epoch < EPOCHS) {
@@ -261,6 +263,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   function finishTraining(): void {
     stopAnim();
     state = 'trained';
+    complete = true;
     setStatus(`${t.epoch(EPOCHS, EPOCHS)} · ${t.reveal} 버튼을 눌러 보세요.`);
     render();
   }
@@ -279,9 +282,13 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     const pred = net.predictInto(data.val.x, new Float64Array(data.val.x.length));
     valMse = mse(pred, data.val.y);
     state = 'revealed';
-    const rec = { H, val: valMse, train: trainer.lastLoss };
-    records = store.add(rec);
-    myRecord = records[records.length - 1] ?? null;
+    if (complete) {
+      records = store.add({ H, val: valMse, train: trainer.lastLoss });
+      myRecord = records[records.length - 1] ?? null;
+    } else {
+      myRecord = null;
+    }
+    drawBoard();
     // 해석 문구
     const trainL = trainer.lastLoss;
     let msg = '';
@@ -294,10 +301,11 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
       msg = t.good;
       tone = 'good';
     } else msg = t.underfit;
-    const others = records.slice(0, -1);
+    const others = complete ? records.slice(0, -1) : records;
     const frac = betterThanFraction(others, valMse);
     // 앞선 기록이 3개는 있어야 백분율이 뜻을 가진다
-    setStatus(others.length >= 3 && Number.isFinite(frac) ? `${msg} ${t.rank(frac)}` : msg, tone);
+    const rank = complete && others.length >= 3 && Number.isFinite(frac) ? ` ${t.rank(frac)}` : '';
+    setStatus(`${msg}${rank}${complete ? '' : ` ${t.partial}`}`, tone);
     bridgeEl.textContent = t.bridge;
     render();
   }
@@ -326,6 +334,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
       setStatus('');
       bridgeEl.textContent = '';
       render();
+      drawBoard();
     }),
   );
   nextBtn.addEventListener('click', () => {

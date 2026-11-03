@@ -47,7 +47,7 @@ export const NEURON_COLORS = ['#7c3aed', '#0e9f9a', '#c2417f'] as const;
 const T_RANGE: readonly [number, number] = [-1.2, 1.2];
 const S_RANGE: readonly [number, number] = [-8, 8];
 const Y_RANGE: readonly [number, number] = [-2.2, 2.2];
-const HANDLE_R = 16; // 그리는 반지름(px). 잡는 반지름은 아래
+const HANDLE_R = 19; // 그리는 반지름(px). 잡는 반지름은 아래
 const HIT_R = 30; // 지름 60px ≥ 48px
 /** 손잡이를 위아래로 끌 때: 그림 영역 높이 전체 = s 가 이만큼 변함 */
 const S_PER_FULL_HEIGHT = 10;
@@ -147,6 +147,8 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
   let running = false;
   let adam: Adam | null = null;
   let vec: Float64Array | null = null;
+  let lastGood: Float64Array | null = null; // 손실이 유한했던 마지막 매개변수
+  let blewUp = false;
   let steps = 0;
   let lossHistory: number[] = [];
 
@@ -168,8 +170,8 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
       const y = hingePredict(p, p.t[k]);
       const color = NEURON_COLORS[k % NEURON_COLORS.length];
       fit.drawMarker(p.t[k], y, { radius: HANDLE_R, color, stroke: rest[k] ? COLORS.val : '#ffffff', strokeWidth: rest[k] ? 5 : 4 });
-      fit.drawText(String(k + 1), p.t[k], y, { align: 'center', baseline: 'middle', color: '#fff', size: 20, dy: 1 });
-      if (rest[k]) fit.drawText(t.resting, p.t[k], y, { align: 'right', baseline: 'middle', color: COLORS.val, size: 22, dx: -HANDLE_R - 8 });
+      fit.drawText(String(k + 1), p.t[k], y, { align: 'center', baseline: 'middle', color: '#fff', size: 24, dy: 1 });
+      if (rest[k]) fit.drawText(t.resting, p.t[k], y, { align: 'right', baseline: 'middle', color: COLORS.val, size: 24, dx: -HANDLE_R - 8 });
     }
   }
 
@@ -238,6 +240,7 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
   }
 
   const onPointerDown = (ev: PointerEvent) => {
+    if (drag) return; // 끌고 있는 중에 다른 손가락이 닿아도 손잡이를 빼앗기지 않는다
     const r = fitCanvas.getBoundingClientRect();
     const px = ev.clientX - r.left;
     const py = ev.clientY - r.top;
@@ -286,12 +289,18 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
   function stepOnce(): boolean {
     if (!adam || !vec) return true;
     const g = hingeToVector(hingeGrad(train, p));
+    lastGood = Float64Array.from(vec);
     adam.step(vec, g);
     p = hingeFromVector(vec, K);
     steps++;
     const Lv = hingeLoss(train, p);
     lossHistory.push(Lv);
-    if (!Number.isFinite(Lv)) return true;
+    if (!Number.isFinite(Lv)) {
+      // 값이 튀면 마지막으로 괜찮았던 자리로 되돌리고 멈춘다
+      blewUp = true;
+      if (lastGood) p = hingeFromVector(lastGood, K);
+      return true;
+    }
     if (steps >= MAX_STEPS) return true;
     if (lossHistory.length > 200) {
       const before = lossHistory[lossHistory.length - 201];
@@ -303,7 +312,8 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
   function finish(): void {
     const anyRest = dormantNeurons(p, train.x).some(Boolean);
     stopMachine();
-    setStatus(anyRest ? t.doneRest : t.done, 'good');
+    if (blewUp) setStatus(t.blewUp, 'bad');
+    else setStatus(anyRest ? t.doneRest : t.done, 'good');
     render();
   }
 
@@ -313,6 +323,8 @@ export function mountStage2(root: HTMLElement, data: Dataset, linear: LinearPara
     adam = new Adam(vec.length, { lr: ADAM_LR });
     steps = 0;
     lossHistory = [];
+    lastGood = null;
+    blewUp = false;
     running = true;
     machineBtn.textContent = `■ ${t.stop}`;
     setStatus(t.running);

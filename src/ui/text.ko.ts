@@ -80,6 +80,7 @@ export const T = {
     bridge: '꺾은선 세 개로 직선보다 손실이 많이 줄었어요. 다음 단계에서는 기계가 뉴런을 2개, 8개, 64개까지 써 봐요.',
     bridgeNotYet: '손실이 1단계 직선보다 작아지면 다음 단계로 가는 게 좋아요. 기계에게 맡겨 보세요.',
     resetToLine: '직선으로 되돌리기',
+    blewUp: '값이 너무 커져서 멈췄어요. 마지막으로 괜찮았던 자리로 되돌렸어요. 직선으로 되돌리고 다시 해 보세요.',
   },
 
   stage3: {
@@ -104,7 +105,7 @@ export const T = {
     lossChartTitle: '학습 손실의 변화',
     lossChartHint: '가로는 반복 횟수, 세로는 손실(로그 눈금)',
     trainMse: '학습 손실',
-    valMse: '검증 손실 (숨겨진 점)',
+    valMse: '검증 손실',
     valMseHidden: '공개 전',
     noise: '잡음의 크기 σ²',
     noiseHint: '검증 점에도 잡음이 있어서 이 근처가 사실상 바닥이에요. 우연히 더 낮을 수는 있어요.',
@@ -115,6 +116,7 @@ export const T = {
     boardTitle: '오늘 방문자의 검증 손실',
     boardHint: '노란 막대가 내 결과예요.',
     boardEmpty: '아직 오늘 기록이 없어요. 첫 번째 기록이 될 거예요!',
+    partial: '학습을 끝까지 하지 않아서 오늘 기록에는 넣지 않았어요.',
     boardMean: (H: number, mean: number, n: number) => `뉴런 ${H}개: 평균 ${mean.toFixed(3)} (${n}명)`,
     rank: (frac: number) => `오늘 방문자의 ${Math.round(frac * 100)}%보다 검증 손실이 작아요.`,
     bridge: '뉴런이 많다고 꼭 좋은 건 아니에요. 보지 못한 점을 잘 맞히는 것이 진짜 실력이에요.',
@@ -138,6 +140,7 @@ export const T = {
     s3: (H: number) => `3단계 신경망 (뉴런 ${H}개)`,
     s3none: '3단계 신경망',
     skipped: '건너뜀',
+    skippedAuto: '건너뜀 · 기계가 찾은 직선',
     trainMse: '학습 손실',
     valMse: '검증 손실',
     takeaway: [
@@ -155,6 +158,7 @@ export const T = {
     fixSeed: '자료 시드 고정',
     seed: '시드 (0 이상 정수)',
     seedHint: '고정하면 모든 방문자가 같은 점을 봐요. 비우면 세션마다 새 점.',
+    seedInvalid: '시드는 0 이상의 정수여야 해요. 고정을 끄거나 숫자를 고쳐 주세요.',
     sigma: '잡음 σ',
     n: '학습 점 수',
     idle: '무입력 초기화 (초)',

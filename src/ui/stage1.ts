@@ -209,6 +209,7 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   // 지도를 눌러/끌어 (a, b) 를 고른다 — Pointer Events
   let dragging = false;
   const onPointerDown = (ev: PointerEvent) => {
+    if (dragging) return; // 두 번째 손가락은 무시 (키오스크 멀티터치)
     dragging = true;
     mapCanvas.setPointerCapture(ev.pointerId);
     stopMachine();

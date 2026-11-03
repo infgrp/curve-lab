@@ -27,7 +27,7 @@
   --r-sm: 14px;
   --fs-title: 36px;
   --fs-body: 24px;
-  --fs-small: 22px;
+  --fs-small: 24px;
   --fs-num: 44px;
   font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', 'NanumGothic', system-ui, sans-serif;
   font-size: var(--fs-body);
@@ -134,7 +134,7 @@ details.more ol { margin-top: 10px; padding: 14px 18px 14px 40px; display: grid;
 .panel-head h2 { font-size: 28px; font-weight: 800; white-space: nowrap; }
 .panel-head .hint { font-size: var(--fs-small); text-align: right; }
 .hint { color: var(--muted); font-size: var(--fs-small); }
-canvas.plot { width: 100%; height: 100%; min-height: 0; display: block; border-radius: var(--r-md); }
+canvas.plot { width: 100%; height: 100%; min-height: 0; display: block; border-radius: var(--r-md); touch-action: none; /* 끌기 중 브라우저 제스처가 가로채지 않게 */ }
 .controls { display: grid; gap: 12px; }
 .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .row-name { font-weight: 700; }

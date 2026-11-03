@@ -7,7 +7,7 @@
  */
 import { type Dataset, TRUE_FN, generateDataset } from '../core/data.ts';
 import { type HingeParams, hingePredict } from '../core/hinge.ts';
-import { type LinearParams, linearLoss } from '../core/linear.ts';
+import { type LinearParams, linearClosedForm, linearLoss } from '../core/linear.ts';
 import { hingeLoss } from '../core/hinge.ts';
 import { seedFrom } from '../core/rng.ts';
 import { toCsv } from '../core/scoreboard.ts';
@@ -36,6 +36,8 @@ interface Session {
   hinge: HingeParams | null;
   net: Stage3Result | null;
   netPredict: ((x: number) => number) | null;
+  /** 건너뛴 단계 번호 */
+  skipped: Set<number>;
 }
 
 const SETTINGS_KEY = 'curve-lab:settings';
@@ -107,7 +109,7 @@ export class App {
   newSession(): Session {
     const seed = this.settings.fixedSeed ?? seedFrom(this.now(), this.entropy());
     const data = generateDataset(seed, { n: this.settings.n, sigma: this.settings.sigma });
-    return { data, linear: null, hinge: null, net: null, netPredict: null };
+    return { data, linear: null, hinge: null, net: null, netPredict: null, skipped: new Set() };
   }
 
   resetToStart(): void {
@@ -150,6 +152,11 @@ export class App {
         ss.linear = r;
         this.showStage2();
       },
+      onSkip: () => {
+        ss.linear = linearClosedForm(ss.data.train); // 2단계가 이어받을 직선은 기계가 찾은 것
+        ss.skipped.add(1);
+        this.showStage2();
+      },
     });
   }
 
@@ -161,6 +168,11 @@ export class App {
     this.handle = mountStage2(this.root, ss.data, lin, {
       onNext: (r) => {
         ss.hinge = r;
+        this.showStage3();
+      },
+      onSkip: () => {
+        ss.hinge = null;
+        ss.skipped.add(2);
         this.showStage3();
       },
     });
@@ -175,6 +187,12 @@ export class App {
       onNext: (r) => {
         ss.net = r;
         ss.netPredict = r ? h.predictor : null;
+        this.showResult();
+      },
+      onSkip: () => {
+        ss.net = null;
+        ss.netPredict = null;
+        ss.skipped.add(3);
         this.showResult();
       },
     });
@@ -225,7 +243,7 @@ export class App {
           <div class="glass panel">
             <div class="panel-head"><h2>손실 비교</h2><span class="hint">σ² = ${(data.sigma * data.sigma).toFixed(4)}</span></div>
             <div class="controls scroll result-list">
-              ${card(r.s1, lin ? linearLoss(data.train, lin) : null, lin ? valMse((x) => lin.a * x + lin.b) : null, '#8794a6')}
+              ${card(ss.skipped.has(1) ? `${r.s1} · ${r.skippedAuto}` : r.s1, lin ? linearLoss(data.train, lin) : null, lin ? valMse((x) => lin.a * x + lin.b) : null, '#8794a6')}
               ${card(r.s2, hinge ? hingeLoss(data.train, hinge) : null, hinge ? valMse((x) => hingePredict(hinge, x)) : null, '#7c3aed')}
               ${card(net ? r.s3(net.H) : r.s3none, net ? net.trainMse : null, net ? net.valMse : null, COLORS.train)}
               <ul class="card takeaway">${r.takeaway.map((x) => `<li>${x}</li>`).join('')}</ul>
@@ -319,6 +337,10 @@ export class App {
     q<HTMLButtonElement>('save').addEventListener('click', () => {
       const fix = q<HTMLInputElement>('fix').checked;
       const seedRaw = q<HTMLInputElement>('seed').value.trim();
+      if (fix && !/^\d+$/.test(seedRaw)) {
+        msg.textContent = s.seedInvalid;
+        return;
+      }
       const next = sanitizeSettings({
         fixedSeed: fix && seedRaw !== '' ? seedRaw : null,
         sigma: q<HTMLInputElement>('sigma').value,
