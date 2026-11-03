@@ -394,6 +394,24 @@ export class Plot {
     });
   }
 
+  /** 세로 막대 (히스토그램). 막대 k 는 x ∈ [x0 + k·w, x0 + (k+1)·w], 높이 heights[k] */
+  drawBars(x0: number, w: number, heights: ArrayLike<number>, style: { color?: string; highlight?: number; highlightColor?: string; gap?: number } = {}): void {
+    const { ctx } = this;
+    const gap = style.gap ?? 2;
+    this.clipped(() => {
+      for (let k = 0; k < heights.length; k++) {
+        const h = heights[k];
+        if (!(h > 0)) continue;
+        const [px0, py0] = this.toPx(x0 + k * w, 0);
+        const [px1, py1] = this.toPx(x0 + (k + 1) * w, h);
+        ctx.fillStyle = k === style.highlight ? (style.highlightColor ?? COLORS.path) : (style.color ?? 'rgba(11,108,255,.45)');
+        const left = Math.min(px0, px1) + gap / 2;
+        const width = Math.max(1, Math.abs(px1 - px0) - gap);
+        ctx.fillRect(left, Math.min(py0, py1), width, Math.abs(py0 - py1));
+      }
+    });
+  }
+
   /** 현재 위치 같은 강조 표식 (고리 있는 점) */
   drawMarker(x: number, y: number, style: PointStyle = {}): void {
     const { ctx } = this;

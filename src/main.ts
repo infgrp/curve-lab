@@ -5,6 +5,7 @@ import { seedFrom } from './core/rng.ts';
 import { ensureBackground } from './ui/chrome.ts';
 import { mountStage1 } from './ui/stage1.ts';
 import { mountStage2 } from './ui/stage2.ts';
+import { mountStage3 } from './ui/stage3.ts';
 
 // 임시 흐름(Phase 7 전): 1단계 → 2단계. 시작 화면·3단계·무입력 초기화는 Phase 6~7(app.ts) 에서.
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -25,10 +26,19 @@ function openStage1(): void {
 }
 
 function openStage2(linear: { a: number; b: number }): void {
-  const stage2 = mountStage2(app!, data, linear, { onNext: (r) => console.log('2단계 결과', r) });
+  const stage2 = mountStage2(app!, data, linear, { onNext: () => openStage3() });
   devHook(2, (m) => {
     if (query.has('rest')) stage2.setNeuron(2, 1.15, 0.8); // 뉴런 3 을 자료 오른쪽 너머로 → 쉬는 뉴런 점검
     if (m) stage2.runMachine(false);
+  });
+}
+
+function openStage3(): void {
+  const stage3 = mountStage3(app!, data, { onNext: (r) => console.log('3단계 결과', r) });
+  devHook(3, (m) => {
+    const h = Number(query.get('h') ?? '8');
+    if (m) stage3.trainNow(h);
+    if (query.has('reveal')) stage3.reveal();
   });
 }
 
@@ -39,5 +49,7 @@ function devHook(stage: number, run: (machine: string | null) => void): void {
   if (wanted === stage) run(query.get('machine'));
 }
 
-if (import.meta.env.DEV && Number(query.get('stage')) === 2) openStage2(linearClosedForm(data.train));
+const wantedStage = import.meta.env.DEV ? Number(query.get('stage')) : 0;
+if (wantedStage === 2) openStage2(linearClosedForm(data.train));
+else if (wantedStage === 3) openStage3();
 else openStage1();
