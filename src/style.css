@@ -1,0 +1,33 @@
+/* 키오스크 1920×1080 가로, 터치. 최소 글자 24px (SPEC 4절). 원격 폰트 없음: 시스템 한글 폰트 우선. */
+:root {
+  --bg: #f6f8fb;
+  --text: #15223a;
+  --accent: #0b6cff;
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', 'NanumGothic', system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app { text-align: center; }
+
+.title {
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
