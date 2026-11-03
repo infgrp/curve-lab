@@ -1,7 +1,7 @@
 /**
  * 1단계 화면: 직선 맞추기 (SPEC 1단계 UI).
  *
- * 왼쪽: 자료 점·직선·잔차 선분과 슬라이더 두 개(a, b), 손실 값.
+ * 왼쪽: 자료 점·직선·잔차 선분과 슬라이더 두 개(a, b), 손실 카드.
  * 오른쪽: (a, b) 평면의 손실 등고선(로그 간격)과 현재 위치. 지도를 눌러/끌어 직선을 옮길 수 있다.
  * "기계에게 맡기기": 현재 위치에서 경사하강법을 시작해 경로를 애니메이션으로 그린다.
  * 학습률 선택지 3개(0.1·η_max, 0.6·η_max, 1.1·η_max). 발산해도 앱은 멈추지 않는다.
@@ -17,6 +17,7 @@ import {
   linearGdStep,
   linearLoss,
 } from '../core/linear.ts';
+import { legend, stageHeader } from './chrome.ts';
 import { COLORS, Plot } from './plot.ts';
 import { T } from './text.ko.ts';
 
@@ -52,6 +53,7 @@ const DIVERGE_BOUND = 30;
 const LOSS_DISPLAY_MAX = 100;
 
 const t = T.stage1;
+const L = T.app.legend;
 
 export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Options): Stage1Handle {
   const train = data.train;
@@ -62,12 +64,14 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   // ── DOM ──
   root.innerHTML = `
     <section class="stage stage1">
-      <header class="stage-head">
-        <h1>${t.title}</h1>
-        <ol class="guide">${t.guide.map((g) => `<li>${g}</li>`).join('')}</ol>
-      </header>
+      ${stageHeader(1, t.title, t.lead, t.guide)}
       <div class="stage-body">
-        <div class="panel">
+        <div class="glass panel">
+          <div class="panel-head"><h2>${t.plotTitle}</h2>${legend([
+            { kind: 'dot', color: COLORS.train, label: L.train },
+            { kind: 'line', color: COLORS.train, label: L.model },
+            { kind: 'line', color: COLORS.residual, label: L.residual },
+          ])}</div>
           <canvas class="plot" data-role="fit"></canvas>
           <div class="controls">
             <label class="slider">
@@ -78,18 +82,22 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
               <span class="slider-name">${t.sliderB} <output data-role="b-out"></output></span>
               <input type="range" data-role="b" min="${B_RANGE[0]}" max="${B_RANGE[1]}" step="0.01" />
             </label>
-            <div class="readout">
-              <span class="readout-name">${t.loss}</span>
-              <output class="readout-value" data-role="loss"></output>
-              <span class="readout-hint">${t.lossHint}</span>
+            <div class="card stat blue">
+              <span class="k">${t.loss} · ${t.lossHint}</span>
+              <output class="v" data-role="loss"></output>
+              <span class="s" data-role="loss-sub"></span>
             </div>
           </div>
         </div>
-        <div class="panel">
-          <h2>${t.contourTitle}</h2>
-          <p class="hint">${t.contourGuide}</p>
+        <div class="glass panel">
+          <div class="panel-head"><h2>${t.contourTitle}</h2><span class="hint">${t.contourGuide}</span></div>
           <canvas class="plot" data-role="map"></canvas>
           <div class="controls">
+            ${legend([
+              { kind: 'dot', color: COLORS.path, label: '지금 위치' },
+              { kind: 'line', color: COLORS.path, label: L.path },
+              { kind: 'line', color: COLORS.contour, label: '손실이 같은 선' },
+            ])}
             <p class="hint">${t.machineGuide}</p>
             <div class="row">
               <span class="row-name">${t.lrLabel}</span>
@@ -98,17 +106,17 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
                 <label><input type="radio" name="lr" value="good" checked /><span>${t.lr.good}</span></label>
                 <label><input type="radio" name="lr" value="tooBig" /><span>${t.lr.tooBig}</span></label>
               </div>
-              <button class="btn primary" type="button" data-role="machine">${t.machine}</button>
+              <button class="btn" type="button" data-role="machine">▶ ${t.machine}</button>
             </div>
             <p class="status" data-role="status" aria-live="polite"></p>
           </div>
         </div>
       </div>
       <footer class="stage-foot">
-        <p class="limit" data-role="limit"></p>
+        <p class="bridge" data-role="limit"></p>
         <div class="row">
-          <button class="btn" type="button" data-role="skip">${T.app.skip}</button>
-          <button class="btn primary" type="button" data-role="next">${T.app.next}</button>
+          <button class="btn ghost" type="button" data-role="skip">${T.app.skip}</button>
+          <button class="btn primary" type="button" data-role="next">${T.app.next} →</button>
         </div>
       </footer>
     </section>`;
@@ -125,6 +133,7 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   const aOut = q<HTMLOutputElement>('a-out');
   const bOut = q<HTMLOutputElement>('b-out');
   const lossOut = q<HTMLOutputElement>('loss');
+  const lossSub = q<HTMLSpanElement>('loss-sub');
   const statusEl = q<HTMLParagraphElement>('status');
   const limitEl = q<HTMLParagraphElement>('limit');
   const machineBtn = q<HTMLButtonElement>('machine');
@@ -168,17 +177,18 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
     bInput.value = String(clamp(p.b, B_RANGE));
     aOut.value = fmt(p.a);
     bOut.value = fmt(p.b);
-    const L = linearLoss(train, p);
-    const tooBig = !Number.isFinite(L) || L > LOSS_DISPLAY_MAX;
-    lossOut.value = tooBig ? t.lossTooBig : L.toFixed(3);
+    const Lv = linearLoss(train, p);
+    const tooBig = !Number.isFinite(Lv) || Lv > LOSS_DISPLAY_MAX;
+    lossOut.value = tooBig ? t.lossTooBig : Lv.toFixed(3);
     lossOut.classList.toggle('bad', tooBig);
+    lossSub.textContent = `${t.bestLoss}: ${bestLoss.toFixed(3)}`;
   }
 
   function render(): void {
     syncInputs();
     drawFit();
     drawMap();
-    limitEl.textContent = linearLoss(train, p) < bestLoss * 1.15 ? `${t.limit} (${t.bestLoss}: ${bestLoss.toFixed(3)})` : '';
+    limitEl.textContent = linearLoss(train, p) < bestLoss * 1.15 ? t.limit : '';
   }
 
   function setParams(next: LinearParams, clearPath = true): void {
@@ -190,7 +200,7 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   // ── 입력 ──
   const onSlide = () => {
     stopMachine();
-    statusEl.textContent = '';
+    setStatus('');
     setParams({ a: Number(aInput.value), b: Number(bInput.value) });
   };
   aInput.addEventListener('input', onSlide);
@@ -202,7 +212,7 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
     dragging = true;
     mapCanvas.setPointerCapture(ev.pointerId);
     stopMachine();
-    statusEl.textContent = '';
+    setStatus('');
     pick(ev);
   };
   const onPointerMove = (ev: PointerEvent) => {
@@ -221,6 +231,11 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   mapCanvas.addEventListener('pointerup', onPointerUp);
   mapCanvas.addEventListener('pointercancel', onPointerUp);
 
+  function setStatus(text: string, tone: '' | 'good' | 'bad' = ''): void {
+    statusEl.textContent = text;
+    statusEl.className = `status ${tone}`.trim();
+  }
+
   // ── 기계에게 맡기기 (경사하강 애니메이션) ──
   function chosenLr(): keyof typeof ETA_CHOICES {
     const el = root.querySelector<HTMLInputElement>('input[name="lr"]:checked');
@@ -232,22 +247,22 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     running = false;
-    machineBtn.textContent = t.machine;
+    machineBtn.textContent = `▶ ${t.machine}`;
   }
 
   function finish(reason: 'converged' | 'diverged' | 'steps'): void {
     stopMachine();
-    if (reason === 'diverged') statusEl.textContent = t.diverged;
-    else if (reason === 'converged') statusEl.textContent = t.converged;
-    else statusEl.textContent = currentEta < 0.3 * etaMax ? t.slow : t.converged;
+    if (reason === 'diverged') setStatus(t.diverged, 'bad');
+    else if (reason === 'converged') setStatus(t.converged, 'good');
+    else setStatus(currentEta < 0.3 * etaMax ? t.slow : t.converged, currentEta < 0.3 * etaMax ? '' : 'good');
     render();
   }
 
   /** 한 스텝 진행. 끝났으면 이유를 돌려준다. */
   function stepOnce(): 'converged' | 'diverged' | 'steps' | null {
     const next = linearGdStep(train, p, currentEta);
-    const L = linearLoss(train, next);
-    if (!Number.isFinite(next.a) || !Number.isFinite(next.b) || !Number.isFinite(L) || Math.abs(next.a) > DIVERGE_BOUND || Math.abs(next.b) > DIVERGE_BOUND) {
+    const Lv = linearLoss(train, next);
+    if (!Number.isFinite(next.a) || !Number.isFinite(next.b) || !Number.isFinite(Lv) || Math.abs(next.a) > DIVERGE_BOUND || Math.abs(next.b) > DIVERGE_BOUND) {
       // 발산: 마지막 유한한 위치는 두고, 경로에 끊김 표시(NaN)를 남긴다
       path.push({ a: NaN, b: NaN });
       return 'diverged';
@@ -266,8 +281,8 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
     currentEta = ETA_CHOICES[choice] * etaMax;
     path = [p];
     running = true;
-    machineBtn.textContent = t.stop;
-    statusEl.textContent = t.running;
+    machineBtn.textContent = `■ ${t.stop}`;
+    setStatus(t.running);
     if (!animate) {
       let why: ReturnType<typeof stepOnce> = null;
       while (why === null) why = stepOnce();
@@ -291,7 +306,7 @@ export function mountStage1(root: HTMLElement, data: Dataset, options: Stage1Opt
   machineBtn.addEventListener('click', () => {
     if (running) {
       stopMachine();
-      statusEl.textContent = '';
+      setStatus('');
       render();
     } else {
       runMachine();
