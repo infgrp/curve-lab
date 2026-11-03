@@ -128,6 +128,7 @@ details.more[open] summary { background: rgba(11, 108, 255, 0.12); }
 details.more ol { margin-top: 10px; padding: 14px 18px 14px 40px; display: grid; gap: 4px; border-radius: var(--r-md); max-width: 720px; }
 
 .stage-body { display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px; min-height: 0; }
+.stage-body.three { grid-template-columns: 1.1fr 0.85fr 0.95fr; gap: 18px; }
 .panel { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-height: 0; padding: 18px 22px 20px; overflow: hidden; }
 .panel > .scroll { min-height: 0; overflow: auto; align-content: start; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
@@ -231,7 +232,8 @@ input[type='range']:disabled { opacity: 0.45; }
 .progress i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #4a92ff, var(--blue)); transition: width 0.1s linear; }
 .right-stack { display: grid; grid-template-rows: 1.1fr auto auto 1fr auto; gap: 10px; min-height: 0; }
 .stats.three { grid-template-columns: 1fr 1fr 1fr; }
-.stats.three .stat .v { font-size: 34px; }
+.stats.three .stat .v { font-size: 30px; }
+.stats.three .stat { padding: 10px 14px; }
 canvas.plot.board { min-height: 120px; }
 
 /* ── 시작 화면 ── */

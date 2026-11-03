@@ -32,6 +32,7 @@ if (import.meta.env.DEV) {
       app.showStage3();
       if (m) h<Stage3Handle>().trainNow(Number(q.get('h') ?? '8'));
       if (q.has('reveal')) h<Stage3Handle>().reveal();
+      if (q.has('pick')) h<Stage3Handle>().pick(Number(q.get('pick')));
     } else if (stage === 'result') {
       ss.linear = linearClosedForm(ss.data.train);
       app.showStage3();

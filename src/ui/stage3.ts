@@ -13,6 +13,7 @@ import { HIDDEN_CHOICES, Mlp, MlpTrainer } from '../core/mlp.ts';
 import { Rng } from '../core/rng.ts';
 import { type ScoreRecord, betterThanFraction, binCounts, binIndex, meansByH } from '../core/scoreboard.ts';
 import { legend, stageHeader } from './chrome.ts';
+import { NetView } from './netview.ts';
 import { COLORS, Plot } from './plot.ts';
 import { ScoreStore } from './scoreboard.ts';
 import { T } from './text.ko.ts';
@@ -38,6 +39,8 @@ export interface Stage3Handle {
   trainNow(H?: number): void;
   reveal(): void;
   get state(): State;
+  /** 점검용: 은닉 뉴런 k 를 고른다 */
+  pick(k: number): void;
   /** 학습된 신경망의 예측 함수 (학습 전이면 null) */
   get predictor(): ((x: number) => number) | null;
 }
@@ -51,6 +54,7 @@ const Y_RANGE: readonly [number, number] = [-2.2, 2.2];
 const BOARD_RANGE: readonly [number, number] = [0, 0.4];
 const BOARD_BINS = 16;
 const t = T.stage3;
+const POS_EDGE = '#0b6cff';
 const L = T.app.legend;
 
 export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Options): Stage3Handle {
@@ -61,7 +65,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   root.innerHTML = `
     <section class="stage stage3">
       ${stageHeader(3, t.title, t.lead, t.guide)}
-      <div class="stage-body">
+      <div class="stage-body three">
         <div class="glass panel">
           <div class="panel-head"><h2>${t.plotTitle}</h2>${legend([
             { kind: 'dot', color: COLORS.train, label: L.train },
@@ -83,6 +87,18 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
             </div>
             <div class="progress"><i data-role="prog"></i></div>
             <p class="status" data-role="status" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="glass panel">
+          <div class="panel-head"><h2>${t.netTitle}</h2></div>
+          <canvas class="plot" data-role="net"></canvas>
+          <div class="controls">
+            ${legend([
+              { kind: 'line', color: POS_EDGE, label: t.netPos },
+              { kind: 'line', color: COLORS.val, label: t.netNeg },
+              { kind: 'line', color: COLORS.path, label: t.netSelected },
+            ])}
+            <p class="hint" data-role="net-hint">${t.netHint}</p>
           </div>
         </div>
         <div class="glass panel">
@@ -117,6 +133,8 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   const fitCanvas = q<HTMLCanvasElement>('fit');
   const lossCanvas = q<HTMLCanvasElement>('losschart');
   const boardCanvas = q<HTMLCanvasElement>('board');
+  const netCanvas = q<HTMLCanvasElement>('net');
+  const netHint = q<HTMLParagraphElement>('net-hint');
   const trainBtn = q<HTMLButtonElement>('train');
   const retryBtn = q<HTMLButtonElement>('retry');
   const revealBtn = q<HTMLButtonElement>('reveal');
@@ -141,11 +159,13 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   let valMse = NaN;
   let records: ScoreRecord[] = store.today();
   let myRecord: ScoreRecord | null = null;
+  let selected: number | null = null; // 눌러서 고른 은닉 뉴런
   let complete = false; // 20000 epoch 을 끝까지 돌렸는가 (중간에 멈춘 결과는 기록하지 않는다)
 
   const fit = new Plot(fitCanvas, { xRange: [-1.2, 1.2], yRange: Y_RANGE, xLabel: 'x', yLabel: 'y' });
   const lossPlot = new Plot(lossCanvas, { xRange: [0, EPOCHS], yRange: [-4, 0.5], xLabel: '반복', padding: { left: 84, right: 48, bottom: 44 } });
   const board = new Plot(boardCanvas, { xRange: BOARD_RANGE, yRange: [0, 5], xLabel: '검증 손실', padding: { left: 56, bottom: 44 } });
+  const netView = new NetView(netCanvas);
 
   function drawFit(): void {
     fit.clear();
@@ -154,6 +174,29 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     if (net) fit.drawCurve((x) => net!.predict(x), { color: COLORS.train, width: 4.5 });
     if (state === 'revealed') fit.drawPoints(data.val.x, data.val.y, { shape: 'diamond', color: COLORS.val, radius: 7 });
     fit.drawPoints(train.x, train.y, { shape: 'circle', color: COLORS.train, radius: 9 });
+    // 고른 뉴런이 담당하는 꺾은선: v·ReLU(w x + b) 를 금색 점선으로, 꺾이는 점 t = −b/w 에 표식
+    if (net && selected !== null && selected < net.H) {
+      const j = selected;
+      const w = net.W1[j];
+      const b = net.b1[j];
+      const v = net.W2[j];
+      fit.drawCurve((x) => v * Math.max(0, w * x + b), { color: COLORS.path, width: 3.5, dash: [10, 7] });
+      if (w !== 0) {
+        const tk = -b / w;
+        if (tk >= -1.2 && tk <= 1.2) fit.drawMarker(tk, 0, { radius: 10, color: COLORS.path });
+      }
+    }
+  }
+
+  function drawNet(): void {
+    netView.draw(net, net ? net.H : chosenH(), selected, { input: 'x', output: 'ŷ', relu: t.netRelu });
+    if (net && selected !== null && selected < net.H) {
+      const w = net.W1[selected];
+      const b = net.b1[selected];
+      netHint.textContent = t.netPicked(selected + 1, w !== 0 ? -b / w : NaN, net.W2[selected]);
+    } else {
+      netHint.textContent = net ? t.netHintTrained : t.netHint;
+    }
   }
 
   function drawLoss(): void {
@@ -187,6 +230,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   function render(): void {
     drawFit();
     drawLoss();
+    drawNet();
     const epoch = trainer?.epoch ?? 0;
     prog.style.width = `${(epoch / EPOCHS) * 100}%`;
     trainOut.value = trainer && Number.isFinite(trainer.lastLoss) ? trainer.lastLoss.toFixed(4) : '–';
@@ -223,6 +267,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     stopAnim();
     H = chosenH();
     net = Mlp.init(H, new Rng(initSeed));
+    if (selected !== null && selected >= H) selected = null;
     trainer = new MlpTrainer(net, train, 0.01);
     lossLog = [{ epoch: 0, loss: net.loss(train) }];
     valMse = NaN;
@@ -321,6 +366,12 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   });
   revealBtn.addEventListener('click', reveal);
   trueChk.addEventListener('change', drawFit);
+  netCanvas.addEventListener('pointerdown', (ev) => {
+    const k = netView.hitTest(ev);
+    selected = k === null || k === selected ? null : k;
+    drawFit();
+    drawNet();
+  });
   root.querySelectorAll<HTMLInputElement>('input[name="hidden"]').forEach((el) =>
     el.addEventListener('change', () => {
       if (!el.checked) return;
@@ -331,6 +382,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
       lossLog = [];
       valMse = NaN;
       myRecord = null;
+      selected = null;
       setStatus('');
       bridgeEl.textContent = '';
       render();
@@ -349,6 +401,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
   fit.onResize(drawFit);
   lossPlot.onResize(drawLoss);
   board.onResize(drawBoard);
+  netView.onResize(drawNet);
   render();
 
   return {
@@ -357,6 +410,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
       fit.destroy();
       lossPlot.destroy();
       board.destroy();
+      netView.destroy();
       root.innerHTML = '';
     },
     trainNow(h?: number) {
@@ -369,6 +423,11 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     reveal,
     get state() {
       return state;
+    },
+    pick(k) {
+      selected = Number.isInteger(k) && k >= 0 ? k : null;
+      drawFit();
+      drawNet();
     },
     get predictor() {
       const n = net;
