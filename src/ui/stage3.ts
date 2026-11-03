@@ -38,6 +38,8 @@ export interface Stage3Handle {
   trainNow(H?: number): void;
   reveal(): void;
   get state(): State;
+  /** 학습된 신경망의 예측 함수 (학습 전이면 null) */
+  get predictor(): ((x: number) => number) | null;
 }
 
 type State = 'idle' | 'training' | 'trained' | 'revealed';
@@ -358,6 +360,10 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
     reveal,
     get state() {
       return state;
+    },
+    get predictor() {
+      const n = net;
+      return n ? (x: number) => n.predict(x) : null;
     },
   };
 }

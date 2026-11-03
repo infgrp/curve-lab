@@ -233,3 +233,32 @@ input[type='range']:disabled { opacity: 0.45; }
 .stats.three { grid-template-columns: 1fr 1fr 1fr; }
 .stats.three .stat .v { font-size: 34px; }
 canvas.plot.board { min-height: 120px; }
+
+/* ── 시작 화면 ── */
+.start { display: grid; place-items: center; height: 100vh; padding: 40px; }
+.start-card { display: grid; justify-items: center; gap: 18px; padding: 56px 72px; max-width: 1100px; text-align: center; }
+.start-title { font-size: 84px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.start-steps { list-style: none; padding: 0; display: flex; gap: 14px; margin: 10px 0; }
+.start-steps li { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-radius: 999px; background: rgba(255,255,255,.5); border: 1px solid var(--glass-edge); font-weight: 700; font-size: var(--fs-small); }
+.start-steps b { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: #fff; }
+.start-btn { min-height: 88px; padding: 0 64px; font-size: 34px; margin-top: 8px; }
+
+/* ── 결과 화면 ── */
+.result-list { gap: 12px; }
+.result-card .k { font-size: var(--fs-body); color: var(--text); }
+.result-nums { grid-column: 1 / -1; display: flex; gap: 28px; }
+.result-nums span { display: grid; }
+.result-nums small { color: var(--muted); font-size: var(--fs-small); }
+.result-nums b { font-family: Consolas, 'Courier New', monospace; font-size: 36px; color: var(--blue-deep); }
+.result-nums b.ok { color: var(--green); }
+.takeaway { margin: 0; padding: 14px 18px 14px 40px; display: grid; gap: 6px; font-size: var(--fs-small); }
+
+/* ── 교사 설정 ── */
+.hotspot { position: fixed; left: 0; top: 0; width: 140px; height: 140px; z-index: 50; touch-action: none; }
+.hotspot.holding { background: radial-gradient(circle at 0 0, rgba(11,108,255,.25), transparent 70%); }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(19,33,58,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.dialog { display: grid; gap: 12px; width: min(760px, 90vw); padding: 32px 36px; }
+.dialog h2 { font-size: var(--fs-title); font-weight: 800; }
+.field { display: grid; grid-template-columns: 1fr 220px; align-items: center; gap: 16px; font-weight: 700; min-height: 48px; }
+.field input[type='number'] { font: inherit; font-family: Consolas, 'Courier New', monospace; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.8); }
+.field input[type='checkbox'] { width: 32px; height: 32px; justify-self: start; }
