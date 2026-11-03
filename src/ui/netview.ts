@@ -178,13 +178,14 @@ export class NetView {
 
     // ── 숫자 (H ≤ 8): 선들이 벌어지는 뉴런 옆에 적는다. 왼쪽 = 입력 가중치 w, 오른쪽 = 출력 가중치 v, 위 = 편향 b ──
     if (big && net) {
-      ctx.font = `24px ${font}`;
+      // 숫자는 보조 정보라 사용자 요청으로 20px (화면의 다른 글자는 24px 이상)
+      ctx.font = `20px ${font}`;
       ctx.textBaseline = 'middle';
       const tag = (text: string, x: number, yy: number, align: CanvasTextAlign, color: string) => {
-        const wdt = ctx.measureText(text).width + 12;
-        const left = align === 'left' ? x - 6 : align === 'right' ? x - wdt + 6 : x - wdt / 2;
+        const wdt = ctx.measureText(text).width + 10;
+        const left = align === 'left' ? x - 5 : align === 'right' ? x - wdt + 5 : x - wdt / 2;
         ctx.fillStyle = 'rgba(255,255,255,.88)';
-        ctx.fillRect(left, yy - 15, wdt, 30);
+        ctx.fillRect(left, yy - 12, wdt, 24);
         ctx.fillStyle = color;
         ctx.textAlign = align;
         ctx.fillText(text, x, yy + 1);
@@ -194,13 +195,13 @@ export class NetView {
         const sel = selected === j;
         const cw = sel ? '#8a5a00' : net.W1[j] >= 0 ? '#0a56cc' : '#b23a1f';
         const cv = sel ? '#8a5a00' : net.W2[j] >= 0 ? '#0a56cc' : '#b23a1f';
-        tag(fmt(net.W1[j]), xHid - rHid - 16, y, 'right', cw);
-        tag(fmt(net.W2[j]), xHid + rHid + 16, y, 'left', cv);
-        tag(`b ${fmt(net.b1[j])}`, xHid, y - rHid - 16, 'center', 'rgba(19,33,58,.75)');
+        tag(fmt(net.W1[j]), xHid - rHid - 14, y, 'right', cw);
+        tag(fmt(net.W2[j]), xHid + rHid + 14, y, 'left', cv);
+        tag(`b ${fmt(net.b1[j])}`, xHid, y - rHid - 14, 'center', 'rgba(19,33,58,.75)');
       }
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(19,33,58,.75)';
-      ctx.fillText(`${labels.output} 편향 ${fmt(net.b2)}`, xOut, yMid + rIO + 22);
+      ctx.fillText(`${labels.output} 편향 ${fmt(net.b2)}`, xOut, yMid + rIO + 20);
     }
 
     // ── 열 이름 ──

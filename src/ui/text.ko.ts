@@ -120,6 +120,7 @@ export const T = {
     netSelected: '고른 뉴런',
     netHint: '선의 굵기는 가중치의 크기, 색은 부호예요. 학습을 시작하면 가중치가 조금씩 바뀌는 게 보여요.',
     netHintTrained: '뉴런을 누르면 그 뉴런이 맡은 꺾은선이 왼쪽 그림에 금색으로 나타나요.',
+    netHintMany: '뉴런이 많아 숫자 대신 선의 굵기로 가중치의 크기를, 색으로 부호를 나타내요. 뉴런을 누르면 그 뉴런의 꺾은선이 왼쪽에 나타나요.',
     netPicked: (k: number, tk: number, v: number) => `뉴런 ${k}: 꺾이는 점 t = ${Number.isFinite(tk) ? tk.toFixed(2) : '없음'}, 출력 가중치 ${v >= 0 ? '+' : ''}${v.toFixed(2)}. 2단계에서 손으로 하던 꺾은선 하나예요.`,
     boardTitle: '오늘 방문자의 검증 손실',
     boardHint: '노란 막대 = 내 결과',

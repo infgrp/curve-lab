@@ -195,7 +195,7 @@ export function mountStage3(root: HTMLElement, data: Dataset, options: Stage3Opt
       const b = net.b1[selected];
       netHint.textContent = t.netPicked(selected + 1, w !== 0 ? -b / w : NaN, net.W2[selected]);
     } else {
-      netHint.textContent = net ? t.netHintTrained : t.netHint;
+      netHint.textContent = !net ? t.netHint : net.H > 8 ? t.netHintMany : t.netHintTrained;
     }
   }
 
