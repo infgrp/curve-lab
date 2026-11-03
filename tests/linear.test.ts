@@ -11,19 +11,24 @@ import {
   linearLambdaMax,
   linearLoss,
 } from '../src/core/linear.ts';
+import { gradCheck } from './helpers/gradcheck.ts';
 
 const data = generateDataset(11).train;
 
 describe('직선 모델', () => {
   it('(1) 기울기가 중앙차분 수치 기울기와 일치한다', () => {
-    const h = 1e-6;
-    for (const p of [{ a: 0.3, b: -0.2 }, { a: -1.5, b: 2 }, { a: 0, b: 0 }]) {
-      const g = linearGrad(data, p);
-      const numA = (linearLoss(data, { a: p.a + h, b: p.b }) - linearLoss(data, { a: p.a - h, b: p.b })) / (2 * h);
-      const numB = (linearLoss(data, { a: p.a, b: p.b + h }) - linearLoss(data, { a: p.a, b: p.b - h })) / (2 * h);
-      expect(Math.abs(g.a - numA)).toBeLessThan(1e-7);
-      expect(Math.abs(g.b - numB)).toBeLessThan(1e-7);
+    const loss = (p: Float64Array) => linearLoss(data, { a: p[0], b: p[1] });
+    const grad = (p: Float64Array) => {
+      const g = linearGrad(data, { a: p[0], b: p[1] });
+      return Float64Array.of(g.a, g.b);
+    };
+    for (const p of [[0.3, -0.2], [-1.5, 2], [0, 0]]) {
+      const r = gradCheck(Float64Array.from(p), loss, grad);
+      expect(r.maxRelError).toBeLessThan(1e-6);
     }
+    // 돌연변이 검사: 기울기 부호를 뒤집은 구현은 걸려야 한다
+    const wrong = (p: Float64Array) => grad(p).map((v) => -v);
+    expect(gradCheck(Float64Array.of(0.3, -0.2), loss, wrong).maxRelError).toBeGreaterThan(0.5);
   });
 
   it('닫힌 해에서 기울기가 0 이고, 그 손실이 주변보다 작다', () => {
