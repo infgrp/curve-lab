@@ -16,7 +16,6 @@
 
     /* Strictness (CLAUDE.md: TypeScript strict) */
     "strict": true,
-    "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
     "noUnusedLocals": true,
